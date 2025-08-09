@@ -1,6 +1,10 @@
 import hashlib
 import json
+from textwrap import dedent
 from time import time
+from uuid import uuid4
+
+from flask import Flask
 
 
 class BLockchain(object):
@@ -62,6 +66,77 @@ class BLockchain(object):
 
     @staticmethod
     def hash(block):
-        #Hashes a block
+        """
+        Creates a SHA-256 hash of a Block
+        :param block: <dict> Block
+        :return: <str>
+
+        """
+
+        # We must make sure that the Dictionary is Ordered, or we'll have inconsistent hashes
         block_string = json.dumps(block,sort_keys=True).encode()
         return hashlib.sha256(block_string).hexdigest()
+    
+
+    def proof_of_work(self,lastproof):
+        """
+        Simple Proof of WORK Algorithm:
+        - Find a number p' such that hash(pp') contains 4 leading zeroes, where p
+        - p is the previous proof, and p' is the new proof
+        :param lastproof: <int>
+        :return: <int>
+        """
+
+        proof = 0
+        while self.valid_proof(lastproof,proof) is False:
+            proof += 1
+
+        return proof
+    
+
+    @staticmethod
+    def valid_proof(last_proof,proof):
+        """
+        Validates the Proof
+        :param last_proof: <int> Previous Proof
+        :param proof: <int> Current Proof
+        :return: <bool> True if correct, False if not
+
+        """
+        guess = f'{last_proof}{proof}'.encode()
+        guess_hash = hashlib.sha256(guess).hexdigest()
+        return guess[:4] == "0000"
+    
+
+
+
+
+#Instantiate our Node
+app = Flask(__name__)
+
+#Generate a globally unique address for this node
+node_identifier = str(uuid4()).replace('-','')
+
+#Instentiate our Blockchain
+blockchain = BLockchain()
+
+
+@app.route('/mine',methods = ['GET'])
+def mine():
+    return "We will be mining a new block"
+
+@app.route('/transactions/new',methods = ['POST'])
+def new_transaction():
+    return "We will add a new transaction"
+
+@app.route('/chain', methods = ['GET'])
+def full_chain():
+    response = {
+        'chain': blockchain.chain,
+        'length': len(blockchain.chain),
+    }
+    return jsonify(response), 200
+
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
